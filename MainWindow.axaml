@@ -1,0 +1,35 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="GRID0.MainWindow"
+        Title="GRID0 Setup"
+        Width="480" Height="600"
+        MinWidth="440" MinHeight="520">
+  <DockPanel>
+    <Image DockPanel.Dock="Top" Height="100"
+           Source="avares://GRID0/banner.png" Stretch="UniformToFill" />
+    <StackPanel Margin="16" Spacing="0">
+      <StackPanel Orientation="Horizontal" Spacing="10">
+        <Ellipse Name="Dot" Width="20" Height="20" Fill="Gray"
+                 VerticalAlignment="Center" />
+        <TextBlock Name="StatusLabel" Text="Starting..."
+                   FontSize="16" FontWeight="Bold"
+                   VerticalAlignment="Center" />
+      </StackPanel>
+      <TextBlock Name="DetailLabel" Text="" TextWrapping="Wrap"
+                 Margin="0,8,0,0" />
+      <ProgressBar Name="Progress" IsIndeterminate="True"
+                   IsVisible="False" Margin="0,12,0,0" />
+      <TextBlock Text="Log:" Margin="0,12,0,4" />
+      <TextBox Name="LogBox" IsReadOnly="True" AcceptsReturn="True"
+               TextWrapping="Wrap" Height="240"
+               FontFamily="Consolas,Menlo,monospace" FontSize="11" />
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                  Spacing="8" Margin="0,12,0,0">
+        <Button Name="EmuButton" Content="Configure emulators"
+                IsEnabled="False" />
+        <Button Name="ActionButton" Content="Retry" Width="92"
+                IsEnabled="False" />
+      </StackPanel>
+    </StackPanel>
+  </DockPanel>
+</Window>
