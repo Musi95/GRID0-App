@@ -69,27 +69,57 @@ internal static class ZeroTier
         return false;
     }
 
-    // Starts the ZeroTier background service where one exists. A stopped
-    // service does not need a reinstall, so try this before InstallAsync.
-    public static async Task StartServiceAsync(Action<string>? log = null)
+    // Starts the ZeroTier background service where one exists. Returns true
+    // when the CLI answers afterwards. A service that cannot start is not
+    // fixed by reinstalling: it needs a reboot (fresh driver) or a manual
+    // reinstall, so report that instead of looping.
+    public static async Task<bool> StartServiceAsync(Action<string> log)
     {
-        if (OperatingSystem.IsWindows())
+        if (!OperatingSystem.IsWindows())
         {
-            log?.Invoke("Starting the ZeroTier service...");
-            await RunAsync("sc.exe", new[] { "start", "ZeroTierOneService" }, 30000);
+            if (OperatingSystem.IsMacOS())
+            {
+                log("Starting the ZeroTier service...");
+                await RunAsync("/bin/launchctl", new[] { "load", "/Library/LaunchDaemons/com.zerotier.one.plist" }, 30000);
+            }
+            else if (OperatingSystem.IsLinux())
+            {
+                log("Starting the ZeroTier service...");
+                _ = File.Exists("/usr/bin/pkexec")
+                    ? await RunAsync("/usr/bin/pkexec", new[] { "systemctl", "start", "zerotier-one" }, 30000)
+                    : await RunAsync("sudo", new[] { "systemctl", "start", "zerotier-one" }, 30000);
+            }
+            return await IsHealthyAsync();
         }
-        else if (OperatingSystem.IsMacOS())
+
+        log("Checking the ZeroTier service...");
+        var (qCode, qOut, _) = await RunAsync("sc.exe", new[] { "query", "ZeroTierOneService" }, 15000);
+        if (qCode != 0)
         {
-            log?.Invoke("Starting the ZeroTier service...");
-            await RunAsync("/bin/launchctl", new[] { "load", "/Library/LaunchDaemons/com.zerotier.one.plist" }, 30000);
+            log("The ZeroTier service is not registered on this PC.");
+            return false;
         }
-        else if (OperatingSystem.IsLinux())
+        if (qOut.Contains("RUNNING", StringComparison.OrdinalIgnoreCase))
         {
-            log?.Invoke("Starting the ZeroTier service...");
-            _ = File.Exists("/usr/bin/pkexec")
-                ? await RunAsync("/usr/bin/pkexec", new[] { "systemctl", "start", "zerotier-one" }, 30000)
-                : await RunAsync("sudo", new[] { "systemctl", "start", "zerotier-one" }, 30000);
+            log("The ZeroTier service is already running.");
+            return await IsHealthyAsync();
         }
+        if (qOut.Contains("START_PENDING", StringComparison.OrdinalIgnoreCase))
+        {
+            log("The ZeroTier service is stuck starting. Restart your PC and run GRID0 again.");
+            return false;
+        }
+        // Make sure the service is not disabled, then start it.
+        await RunAsync("sc.exe", new[] { "config", "ZeroTierOneService", "start=", "auto" }, 15000);
+        log("Starting the ZeroTier service...");
+        var (sCode, sOut, sErr) = await RunAsync("sc.exe", new[] { "start", "ZeroTierOneService" }, 60000);
+        if (sCode != 0)
+        {
+            var detail = string.IsNullOrWhiteSpace(sErr) ? sOut.Trim() : sErr.Trim();
+            log("The ZeroTier service would not start." + (detail.Length == 0 ? "" : " " + detail));
+            return false;
+        }
+        return await WaitForCliAsync();
     }
 
     public static async Task<(int ExitCode, string Message)> JoinAsync()
@@ -153,7 +183,9 @@ internal static class ZeroTier
                 throw new Exception("The ZeroTier installer exited with code " + code + "." +
                     (string.IsNullOrWhiteSpace(err) ? "" : " " + err.Trim()));
             log("Installer finished.");
-            await StartServiceAsync(log);
+            if (!await StartServiceAsync(log))
+                throw new Exception("ZeroTier installed, but its service did not start. " +
+                    "Restart your PC and run GRID0 again.");
         }
         else if (OperatingSystem.IsMacOS())
         {
