@@ -69,6 +69,35 @@ internal static class ZeroTier
         return false;
     }
 
+    // True when Windows knows the ZeroTier service at all.
+    public static async Task<bool> IsServiceRegisteredAsync()
+    {
+        if (!OperatingSystem.IsWindows()) return true;
+        var (code, _, _) = await RunAsync("sc.exe", new[] { "query", "ZeroTierOneService" }, 15000);
+        return code == 0;
+    }
+
+    // The CLI files exist but the service is not registered: a maintenance
+    // reinstall can skip re-registering it, so remove fully and install fresh.
+    public static async Task RepairAsync(Action<string> log)
+    {
+        if (!OperatingSystem.IsWindows())
+            throw new Exception("Repair is only implemented on Windows.");
+        var msi = await DownloadAsync(WindowsMsiUrl, "ZeroTierOne.msi", log);
+        log("Removing the broken ZeroTier install...");
+        await RunAsync("msiexec.exe", new[] { "/x", msi, "/quiet", "/norestart" }, 300000);
+        log("Running the ZeroTier installer silently...");
+        var (code, _, err) = await RunAsync("msiexec.exe",
+            new[] { "/i", msi, "/quiet", "/norestart" }, 300000);
+        if (code != 0)
+            throw new Exception("The ZeroTier installer exited with code " + code + "." +
+                (string.IsNullOrWhiteSpace(err) ? "" : " " + err.Trim()));
+        log("Installer finished.");
+        if (!await StartServiceAsync(log))
+            throw new Exception("ZeroTier installed, but its service is still not registered. " +
+                "Install ZeroTier by hand from zerotier.com/download, then press Retry.");
+    }
+
     // Starts the ZeroTier background service where one exists. Returns true
     // when the CLI answers afterwards. A service that cannot start is not
     // fixed by reinstalling: it needs a reboot (fresh driver) or a manual
