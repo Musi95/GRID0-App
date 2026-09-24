@@ -26,8 +26,6 @@ public partial class MainWindow : Window
         Closing += (_, _) => _monitorCts?.Cancel();
     }
 
-    private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
-
     private async Task OnActionAsync()
     {
         _monitorCts?.Cancel();
