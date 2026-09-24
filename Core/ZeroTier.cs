@@ -69,6 +69,29 @@ internal static class ZeroTier
         return false;
     }
 
+    // Starts the ZeroTier background service where one exists. A stopped
+    // service does not need a reinstall, so try this before InstallAsync.
+    public static async Task StartServiceAsync(Action<string>? log = null)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            log?.Invoke("Starting the ZeroTier service...");
+            await RunAsync("sc.exe", new[] { "start", "ZeroTierOneService" }, 30000);
+        }
+        else if (OperatingSystem.IsMacOS())
+        {
+            log?.Invoke("Starting the ZeroTier service...");
+            await RunAsync("/bin/launchctl", new[] { "load", "/Library/LaunchDaemons/com.zerotier.one.plist" }, 30000);
+        }
+        else if (OperatingSystem.IsLinux())
+        {
+            log?.Invoke("Starting the ZeroTier service...");
+            _ = File.Exists("/usr/bin/pkexec")
+                ? await RunAsync("/usr/bin/pkexec", new[] { "systemctl", "start", "zerotier-one" }, 30000)
+                : await RunAsync("sudo", new[] { "systemctl", "start", "zerotier-one" }, 30000);
+        }
+    }
+
     public static async Task<(int ExitCode, string Message)> JoinAsync()
     {
         var (code, stdout, stderr) = await CliAsync("join " + NetworkId);
@@ -130,6 +153,7 @@ internal static class ZeroTier
                 throw new Exception("The ZeroTier installer exited with code " + code + "." +
                     (string.IsNullOrWhiteSpace(err) ? "" : " " + err.Trim()));
             log("Installer finished.");
+            await StartServiceAsync(log);
         }
         else if (OperatingSystem.IsMacOS())
         {
