@@ -56,17 +56,29 @@ public partial class MainWindow : Window
             {
                 if (ZeroTier.FindCli() is not null)
                 {
-                    // ZeroTier is installed but its service is not answering.
-                    // Reinstalling over it will not fix a service that cannot
-                    // start: that needs a reboot (fresh driver) or a clean
-                    // reinstall, so fail with that guidance instead of looping.
                     Log("Found ZeroTier, but its service is not responding. Trying to start it...");
                     if (await ZeroTier.StartServiceAsync(Log))
+                    {
                         Log("ZeroTier service is running now.");
+                    }
+                    else if (!await ZeroTier.IsServiceRegisteredAsync())
+                    {
+                        // Files are here but Windows has no service for them:
+                        // clear the broken install out and put it back fresh.
+                        Log("The ZeroTier install is broken. Repairing it...");
+                        SetStatus("gray", "Installing ZeroTier...");
+                        await ZeroTier.RepairAsync(Log);
+                        Log("ZeroTier is running.");
+                    }
                     else
+                    {
+                        // Registered but cannot start: reinstalling will not
+                        // fix it. That needs a reboot (fresh driver) or a
+                        // manual reinstall.
                         throw new Exception("The ZeroTier service will not start. " +
                             "Restart your PC and run GRID0 again. If it still fails, " +
                             "uninstall ZeroTier from Settings > Apps and press Retry.");
+                    }
                 }
                 else
                 {
