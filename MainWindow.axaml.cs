@@ -54,26 +54,25 @@ public partial class MainWindow : Window
             SetStatus("gray", "Checking for ZeroTier...");
             if (!await ZeroTier.IsHealthyAsync())
             {
-                // A stopped service does not need a reinstall: try to start
-                // it first when a CLI is already present.
                 if (ZeroTier.FindCli() is not null)
                 {
-                    Log("Found a ZeroTier install, but it is not responding. Trying to start its service...");
-                    await ZeroTier.StartServiceAsync(Log);
-                }
-                if (!await ZeroTier.IsHealthyAsync())
-                {
-                    SetStatus("gray", "Installing ZeroTier...");
-                    await ZeroTier.InstallAsync(Log);
-                    Log("Waiting for the ZeroTier service...");
-                    if (!await ZeroTier.WaitForCliAsync())
-                        throw new Exception("ZeroTier installed, but its service did not start. " +
-                            "Try restarting your PC, then press Retry.");
-                    Log("ZeroTier is running.");
+                    // ZeroTier is installed but its service is not answering.
+                    // Reinstalling over it will not fix a service that cannot
+                    // start: that needs a reboot (fresh driver) or a clean
+                    // reinstall, so fail with that guidance instead of looping.
+                    Log("Found ZeroTier, but its service is not responding. Trying to start it...");
+                    if (await ZeroTier.StartServiceAsync(Log))
+                        Log("ZeroTier service is running now.");
+                    else
+                        throw new Exception("The ZeroTier service will not start. " +
+                            "Restart your PC and run GRID0 again. If it still fails, " +
+                            "uninstall ZeroTier from Settings > Apps and press Retry.");
                 }
                 else
                 {
-                    Log("ZeroTier service is running now.");
+                    SetStatus("gray", "Installing ZeroTier...");
+                    await ZeroTier.InstallAsync(Log);
+                    Log("ZeroTier is running.");
                 }
             }
             else
