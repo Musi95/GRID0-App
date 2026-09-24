@@ -54,14 +54,27 @@ public partial class MainWindow : Window
             SetStatus("gray", "Checking for ZeroTier...");
             if (!await ZeroTier.IsHealthyAsync())
             {
+                // A stopped service does not need a reinstall: try to start
+                // it first when a CLI is already present.
                 if (ZeroTier.FindCli() is not null)
-                    Log("Found a ZeroTier install, but it is not responding. Repairing...");
-                SetStatus("gray", "Installing ZeroTier...");
-                await ZeroTier.InstallAsync(Log);
-                Log("Waiting for the ZeroTier service...");
-                if (!await ZeroTier.WaitForCliAsync())
-                    throw new Exception("ZeroTier installed, but its service did not start.");
-                Log("ZeroTier is running.");
+                {
+                    Log("Found a ZeroTier install, but it is not responding. Trying to start its service...");
+                    await ZeroTier.StartServiceAsync(Log);
+                }
+                if (!await ZeroTier.IsHealthyAsync())
+                {
+                    SetStatus("gray", "Installing ZeroTier...");
+                    await ZeroTier.InstallAsync(Log);
+                    Log("Waiting for the ZeroTier service...");
+                    if (!await ZeroTier.WaitForCliAsync())
+                        throw new Exception("ZeroTier installed, but its service did not start. " +
+                            "Try restarting your PC, then press Retry.");
+                    Log("ZeroTier is running.");
+                }
+                else
+                {
+                    Log("ZeroTier service is running now.");
+                }
             }
             else
             {
