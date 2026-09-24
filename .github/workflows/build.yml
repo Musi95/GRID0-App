@@ -1,0 +1,53 @@
+name: Build GRID0
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rid: [win-x64, linux-x64, osx-x64, osx-arm64]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Publish
+        run: dotnet publish GRID0.csproj -c Release -r ${{ matrix.rid }} --self-contained true -p:PublishSingleFile=true -o publish/${{ matrix.rid }}
+
+      - name: Zip
+        run: cd publish/${{ matrix.rid }} && zip -r ../../GRID0-${{ matrix.rid }}.zip .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GRID0-${{ matrix.rid }}
+          path: GRID0-${{ matrix.rid }}.zip
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >
+          gh release create ${{ github.ref_name }}
+          --title "GRID0 ${{ github.ref_name }}"
+          --notes "GRID0 ${{ github.ref_name }}: ZeroTier setup, connection monitor, and emulator config in one app for Windows, Linux, and macOS."
+          artifacts/GRID0-*/GRID0-*.zip
