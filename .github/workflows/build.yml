@@ -21,7 +21,7 @@ jobs:
           dotnet-version: '8.0.x'
 
       - name: Publish
-        run: dotnet publish GRID0.csproj -c Release -r ${{ matrix.rid }} --self-contained true -p:PublishSingleFile=true -o publish/${{ matrix.rid }}
+        run: dotnet publish GRID0.csproj -c Release -r ${{ matrix.rid }} --self-contained true -p:PublishSingleFile=false -p:IncludeNativeLibrariesForSelfExtract=false -o publish/${{ matrix.rid }}
 
       - name: Zip
         run: cd publish/${{ matrix.rid }} && zip -r ../../GRID0-${{ matrix.rid }}.zip .
