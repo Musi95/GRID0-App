@@ -6,10 +6,10 @@ your switch emulators for LAN play.
 
 ## what it does
 
-- **setup** — installs zerotier if you don't have it, joins the GRID0 network
-- **watch** — keeps an eye on the connection and tells you why it broke instead
+- **setup** installs zerotier if you don't have it, joins the GRID0 network
+- **watch** keeps an eye on the connection and tells you why it broke instead
   of leaving a fake green dot behind
-- **emulators** — points your emulators at the zerotier adapter. close them
+- **emulators** points your emulators at the zerotier adapter. close them
   first, it backs up your configs before touching anything
 
 ## get it
