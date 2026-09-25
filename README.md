@@ -28,8 +28,7 @@ dotnet publish GRID0.csproj -c Release -r <rid> --self-contained true
 
 ## stuff to know
 
-- joining isn't enough, new members still need to get authorized on the network
 - windows will ask for admin, mac will ask for your password. that's normal
-- if your OS complains on first run it's because the build isn't signed —
+- if your OS complains on first run it's because the build isn't signed
   right-click > open gets around it
 - LAN mode only, no LDN
