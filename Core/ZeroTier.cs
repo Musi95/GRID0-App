@@ -287,20 +287,45 @@ internal static class ZeroTier
         var cli = FindCli();
         if (cli is null) throw new InvalidOperationException("ZeroTier is not installed.");
         if (OperatingSystem.IsWindows())
-        {
-            // Run the .bat through cmd with the whole command quoted.
-            return RunAsync("cmd.exe", new[] { "/c", "\"\"" + cli + "\" " + args + "\"" });
-        }
+            return RunCmdAsync("\"\"" + cli + "\" " + args + "\"");
         return RunAsync(cli, args.Split(' ', StringSplitOptions.RemoveEmptyEntries));
     }
 
-    private static async Task<(int ExitCode, string StdOut, string StdErr)> CliJsonAsync(string args)
+    private static Task<(int ExitCode, string StdOut, string StdErr)> CliJsonAsync(string args)
     {
         var cli = FindCli();
         if (cli is null) throw new InvalidOperationException("ZeroTier is not installed.");
         if (OperatingSystem.IsWindows())
-            return await RunAsync("cmd.exe", new[] { "/c", "\"\"" + cli + "\" -j " + args + "\"" });
-        return await RunAsync(cli, new[] { "-j", args });
+            return RunCmdAsync("\"\"" + cli + "\" -j " + args + "\"");
+        return RunAsync(cli, new[] { "-j", args });
+    }
+
+    // Runs a .bat through cmd.exe with the command line passed verbatim.
+    // This must not go through RunAsync: ProcessStartInfo.ArgumentList adds
+    // its own quoting layer, and the doubled quotes break cmd's parsing, so
+    // the CLI silently never runs and the app thinks ZeroTier is dead.
+    private static async Task<(int ExitCode, string StdOut, string StdErr)> RunCmdAsync(string command)
+    {
+        var psi = new ProcessStartInfo
+        {
+            FileName = "cmd.exe",
+            Arguments = "/c " + command,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true,
+        };
+        using var p = Process.Start(psi);
+        if (p is null) throw new Exception("Could not start cmd.exe.");
+        var outTask = p.StandardOutput.ReadToEndAsync();
+        var errTask = p.StandardError.ReadToEndAsync();
+        var exited = await Task.Run(() => p.WaitForExit(30000));
+        if (!exited)
+        {
+            try { p.Kill(); } catch { }
+            return (-1, "", "timed out");
+        }
+        return (p.ExitCode, await outTask, await errTask);
     }
 
     private static async Task<(int ExitCode, string StdOut, string StdErr)> RunAsync(
