@@ -128,10 +128,26 @@ internal static class ZeroTier
             log("The ZeroTier service is not registered on this PC.");
             return false;
         }
-        if (qOut.Contains("RUNNING", StringComparison.OrdinalIgnoreCase))
+        var running = qOut.Contains("RUNNING", StringComparison.OrdinalIgnoreCase);
+        if (running && await IsHealthyAsync())
         {
             log("The ZeroTier service is already running.");
-            return await IsHealthyAsync();
+            return true;
+        }
+        if (running)
+        {
+            // The service claims to be running but the CLI cannot reach it:
+            // it is hung. Restart it once; a reinstall would not fix this.
+            log("The ZeroTier service is running but not responding. Restarting it...");
+            await RunAsync("sc.exe", new[] { "stop", "ZeroTierOneService" }, 60000);
+            await Task.Delay(5000);
+            var (q2Code, q2Out, _) = await RunAsync("sc.exe", new[] { "query", "ZeroTierOneService" }, 15000);
+            if (q2Code == 0 && q2Out.Contains("RUNNING", StringComparison.OrdinalIgnoreCase))
+            {
+                log("The ZeroTier service would not stop. Restart your PC and run GRID0 again.");
+                return false;
+            }
+            qOut = q2Out;
         }
         if (qOut.Contains("START_PENDING", StringComparison.OrdinalIgnoreCase))
         {
@@ -312,3 +328,4 @@ internal static class ZeroTier
         return (p.ExitCode, await outTask, await errTask);
     }
 }
+

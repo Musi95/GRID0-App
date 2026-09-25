@@ -72,10 +72,10 @@ public partial class MainWindow : Window
                     }
                     else
                     {
-                        // Registered but cannot start: reinstalling will not
-                        // fix it. That needs a reboot (fresh driver) or a
-                        // manual reinstall.
-                        throw new Exception("The ZeroTier service will not start. " +
+                        // Registered but not responding, even after a restart:
+                        // reinstalling will not fix it. That needs a reboot
+                        // (fresh driver) or a manual reinstall.
+                        throw new Exception("The ZeroTier service is not responding, even after restarting it. " +
                             "Restart your PC and run GRID0 again. If it still fails, " +
                             "uninstall ZeroTier from Settings > Apps and press Retry.");
                     }
@@ -333,3 +333,4 @@ public partial class MainWindow : Window
         });
     }
 }
+
