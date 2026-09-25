@@ -1,3 +1,8 @@
+# THIS IS A WORK IN PROGRESS
+# I SAID THIS IS A WORK IN PROGRESS
+# I SAID THIS IS A WORK IN PROGRESS
+# WHY ARE YOU STILL HERE I SAID, nvm
+
 # GRID0 client
 
 one app for windows, linux and mac. installs zerotier, joins the GRID0 network,
