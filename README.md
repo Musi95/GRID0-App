@@ -1,53 +1,30 @@
-# GRID0
+# GRID0 client
 
-One app for every platform: it sets up ZeroTier, joins the GRID0 network
-(`8bd5124fd68185ec`), watches the connection with disconnect detection that
-covers every case, and can point your Switch emulators at the ZeroTier
-adapter for native LAN play.
+one app for windows, linux and mac. installs zerotier, joins the GRID0 network,
+and watches your connection so you actually know when it drops. also sets up
+your switch emulators for LAN play.
 
-Built with .NET 8 and Avalonia. One codebase, published self-contained for:
+## what it does
 
-- Windows x64
-- Linux x64
-- macOS Intel (x64)
-- macOS Apple Silicon (arm64)
+- **setup** — installs zerotier if you don't have it, joins the GRID0 network
+- **watch** — keeps an eye on the connection and tells you why it broke instead
+  of leaving a fake green dot behind
+- **emulators** — points your emulators at the zerotier adapter. close them
+  first, it backs up your configs before touching anything
 
-## What it does
+## get it
 
-1. **Setup** — Installs ZeroTier if it is missing or dead (official
-   installer on Windows/macOS, official install script on Linux), waits for
-   the node to come online, and joins the GRID0 network.
-2. **Monitor** — After connecting, it keeps watching. Every poll checks the
-   full stack: internet reachability, the ZeroTier service, node online
-   state, network membership, the OS adapter state, and the managed address
-   on that adapter. Any disconnect updates the status dot instead of leaving
-   a stale green behind:
-   - Gray: working / disconnected (with Reconnect, no silent auto-rejoin)
-   - Green: connected
-   - Orange: waiting for network authorization
-   - Red: error or offline, with the reason spelled out
-3. **Configure emulators** — The button scans for running emulators
-   (Ryujinx, Ryubing, Kenji-NX, Hyjinx, Eden, Sudachi, Citron NEO, Torzu,
-   Suyu, yuzu; Astris is detected only) and edits their network settings to
-   use the ZeroTier adapter, with `.bak` backups. Emulators must be closed
-   first; the app asks you to close them. LAN mode only, no LDN.
-
-## Build
-
-Pushes to `main` build all four targets in GitHub Actions; download the
-artifact for your platform. Or build locally with the .NET 8 SDK:
+every push to main builds all four (windows, linux, intel mac, arm mac) — grab
+yours from the actions tab. or build it yourself with the .NET 8 SDK:
 
 ```bash
-dotnet publish GRID0.csproj -c Release -r <rid> --self-contained true -p:PublishSingleFile=true
+dotnet publish GRID0.csproj -c Release -r <rid> --self-contained true
 ```
 
-On Windows the app requests administrator rights (ZeroTier install and
-service access need it). On Linux, run it with `sudo` if ZeroTier's CLI is
-not readable by your user.
+## stuff to know
 
-## Notes
-
-- Joining the network is not enough: new members still need authorizing on
-  the GRID0 network unless it is set to auto-authorize.
-- macOS will show its own password prompt during the ZeroTier install.
-- Unsigned macOS/Linux builds may need a right-click > Open on first run.
+- joining isn't enough, new members still need to get authorized on the network
+- windows will ask for admin, mac will ask for your password. that's normal
+- if your OS complains on first run it's because the build isn't signed —
+  right-click > open gets around it
+- LAN mode only, no LDN
