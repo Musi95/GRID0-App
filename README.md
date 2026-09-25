@@ -19,7 +19,7 @@ your switch emulators for LAN play.
 
 ## get it
 
-every push to main builds all four (windows, linux, intel mac, arm mac) — grab
+every push to main builds all four (windows, linux, intel mac, arm mac), grab
 yours from the actions tab. or build it yourself with the .NET 8 SDK:
 
 ```bash
