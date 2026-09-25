@@ -48,22 +48,31 @@ internal static class ZeroTier
     }
 
     // A leftover CLI from a broken install is not enough: it must answer.
-    public static async Task<bool> IsHealthyAsync()
+    public static async Task<bool> IsHealthyAsync(Action<string>? log = null)
     {
         if (FindCli() is null) return false;
         try
         {
-            var (code, _, _) = await CliAsync("info");
+            var (code, _, _) = await CliAsync("info", log);
             return code == 0;
         }
         catch { return false; }
     }
 
-    public static async Task<bool> WaitForCliAsync()
+    // Waits up to ~90s for the CLI to answer, with progress in the log, so a
+    // slow (but alive) service is never mistaken for a dead one.
+    public static async Task<bool> WaitForCliAsync(Action<string>? log = null)
     {
+        log?.Invoke("Waiting for ZeroTier to answer...");
         for (var i = 0; i < 30; i++)
         {
-            if (await IsHealthyAsync()) return true;
+            if (await IsHealthyAsync(log))
+            {
+                if (i > 0) log?.Invoke("ZeroTier answered.");
+                return true;
+            }
+            if (i > 0 && i % 10 == 0)
+                log?.Invoke("Still waiting for ZeroTier to answer... (" + (i * 3) + "s)");
             await Task.Delay(3000);
         }
         return false;
@@ -136,8 +145,20 @@ internal static class ZeroTier
         }
         if (running)
         {
-            // The service claims to be running but the CLI cannot reach it:
-            // it is hung. Restart it once; a reinstall would not fix this.
+            // The service claims to be running but the CLI cannot reach it
+            // yet. A cold service can be slow to answer, so give it some time
+            // before deciding it is hung and restarting it.
+            log("The ZeroTier service is running but not answering yet. Giving it a moment...");
+            for (var i = 0; i < 6; i++)
+            {
+                await Task.Delay(5000);
+                if (await IsHealthyAsync(log))
+                {
+                    log("The ZeroTier service answered.");
+                    return true;
+                }
+            }
+            // Still silent: it is hung. Restart it once; a reinstall would not fix this.
             log("The ZeroTier service is running but not responding. Restarting it...");
             await RunAsync("sc.exe", new[] { "stop", "ZeroTierOneService" }, 60000);
             await Task.Delay(5000);
@@ -164,7 +185,7 @@ internal static class ZeroTier
             log("The ZeroTier service would not start." + (detail.Length == 0 ? "" : " " + detail));
             return false;
         }
-        return await WaitForCliAsync();
+        return await WaitForCliAsync(log);
     }
 
     public static async Task<(int ExitCode, string Message)> JoinAsync()
@@ -282,22 +303,37 @@ internal static class ZeroTier
         return dest;
     }
 
-    private static Task<(int ExitCode, string StdOut, string StdErr)> CliAsync(string args)
+    private static async Task<(int ExitCode, string StdOut, string StdErr)> CliAsync(string args, Action<string>? log = null)
     {
         var cli = FindCli();
         if (cli is null) throw new InvalidOperationException("ZeroTier is not installed.");
-        if (OperatingSystem.IsWindows())
-            return RunCmdAsync("\"\"" + cli + "\" " + args + "\"");
-        return RunAsync(cli, args.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        var r = OperatingSystem.IsWindows()
+            ? await RunCmdAsync("\"\"" + cli + "\" " + args + "\"")
+            : await RunAsync(cli, args.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        if (log is not null && r.ExitCode != 0)
+            log("zerotier-cli " + args + " -> exit " + r.ExitCode + FirstLine(r.StdErr));
+        return r;
     }
 
-    private static Task<(int ExitCode, string StdOut, string StdErr)> CliJsonAsync(string args)
+    private static async Task<(int ExitCode, string StdOut, string StdErr)> CliJsonAsync(string args, Action<string>? log = null)
     {
         var cli = FindCli();
         if (cli is null) throw new InvalidOperationException("ZeroTier is not installed.");
-        if (OperatingSystem.IsWindows())
-            return RunCmdAsync("\"\"" + cli + "\" -j " + args + "\"");
-        return RunAsync(cli, new[] { "-j", args });
+        var r = OperatingSystem.IsWindows()
+            ? await RunCmdAsync("\"\"" + cli + "\" -j " + args + "\"")
+            : await RunAsync(cli, new[] { "-j", args });
+        if (log is not null && r.ExitCode != 0)
+            log("zerotier-cli -j " + args + " -> exit " + r.ExitCode + FirstLine(r.StdErr));
+        return r;
+    }
+
+    // First stderr line, trimmed short for the log.
+    private static string FirstLine(string s)
+    {
+        s = (s ?? "").Trim();
+        if (s.Length == 0) return "";
+        var line = s.Split('\n')[0].Trim();
+        return ": " + (line.Length > 160 ? line.Substring(0, 160) + "..." : line);
     }
 
     // Runs a .bat through cmd.exe with the command line passed verbatim.

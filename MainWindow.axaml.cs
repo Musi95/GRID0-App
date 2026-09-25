@@ -52,11 +52,27 @@ public partial class MainWindow : Window
         try
         {
             SetStatus("gray", "Checking for ZeroTier...");
-            if (!await ZeroTier.IsHealthyAsync())
+            if (ZeroTier.FindCli() is null)
             {
-                if (ZeroTier.FindCli() is not null)
+                SetStatus("gray", "Installing ZeroTier...");
+                await ZeroTier.InstallAsync(Log);
+                Log("ZeroTier is running.");
+            }
+            else if (await ZeroTier.IsHealthyAsync())
+            {
+                Log("ZeroTier is already installed.");
+            }
+            else
+            {
+                SetStatus("gray", "Waiting for ZeroTier...", "The service is slow to answer. Giving it time.");
+                if (await ZeroTier.WaitForCliAsync(Log))
                 {
-                    Log("Found ZeroTier, but its service is not responding. Trying to start it...");
+                    Log("ZeroTier is already installed.");
+                }
+                else
+                {
+                    Log("ZeroTier is installed but not answering. Trying to start its service...");
+                    SetStatus("gray", "Starting the ZeroTier service...", "This can take a couple of minutes.");
                     if (await ZeroTier.StartServiceAsync(Log))
                     {
                         Log("ZeroTier service is running now.");
@@ -72,24 +88,14 @@ public partial class MainWindow : Window
                     }
                     else
                     {
-                        // Registered but not responding, even after a restart:
-                        // reinstalling will not fix it. That needs a reboot
-                        // (fresh driver) or a manual reinstall.
-                        throw new Exception("The ZeroTier service is not responding, even after restarting it. " +
+                        // Registered but not responding, even after waiting and a
+                        // restart: reinstalling will not fix it. That needs a
+                        // reboot (fresh driver) or a manual reinstall.
+                        throw new Exception("The ZeroTier service is not responding, even after waiting and restarting it. " +
                             "Restart your PC and run GRID0 again. If it still fails, " +
                             "uninstall ZeroTier from Settings > Apps and press Retry.");
                     }
                 }
-                else
-                {
-                    SetStatus("gray", "Installing ZeroTier...");
-                    await ZeroTier.InstallAsync(Log);
-                    Log("ZeroTier is running.");
-                }
-            }
-            else
-            {
-                Log("ZeroTier is already installed.");
             }
 
             if (!await WaitForNodeOnlineAsync(ct))
