@@ -39,6 +39,8 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
@@ -46,8 +48,25 @@ jobs:
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: >
-          gh release create ${{ github.ref_name }}
-          --title "GRID0 ${{ github.ref_name }}"
-          --notes "GRID0 ${{ github.ref_name }}: ZeroTier setup, connection monitor, and emulator config in one app for Windows, Linux, and macOS."
-          artifacts/GRID0-*/GRID0-*.zip
+        run: |
+          cat > notes.txt <<'EOF'
+          the very first GRID0 client build.
+
+          what it does
+
+          installs zerotier if you don't have it, joins the GRID0 network, and
+          watches the connection so you know when it drops instead of staring
+          at a fake green dot.
+
+          also points your switch emulators at the zerotier adapter for LAN
+          play. close them first, it backs up your configs before touching
+          anything.
+
+          grab the zip for your OS. windows will ask for admin, mac will ask
+          for your password, that's normal. if your OS complains on first run
+          it's because the build isn't signed.
+          EOF
+          gh release create ${{ github.ref_name }} \
+            --title "GRID0 ${{ github.ref_name }}" \
+            --notes-file notes.txt \
+            artifacts/GRID0-*/GRID0-*.zip
