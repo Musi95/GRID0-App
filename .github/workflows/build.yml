@@ -66,7 +66,11 @@ jobs:
           for your password, that's normal. if your OS complains on first run
           it's because the build isn't signed.
           EOF
-          gh release create ${{ github.ref_name }} \
-            --title "GRID0 ${{ github.ref_name }}" \
-            --notes-file notes.txt \
-            artifacts/GRID0-*/GRID0-*.zip
+          if gh release view ${{ github.ref_name }} >/dev/null 2>&1; then
+            gh release upload ${{ github.ref_name }} artifacts/GRID0-*/GRID0-*.zip --clobber
+          else
+            gh release create ${{ github.ref_name }} \
+              --title "GRID0 ${{ github.ref_name }}" \
+              --notes-file notes.txt \
+              artifacts/GRID0-*/GRID0-*.zip
+          fi
